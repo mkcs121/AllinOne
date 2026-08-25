@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 using AllInOne.Logic;
 using AllInOne.Forms;
 
@@ -23,12 +24,37 @@ namespace AllInOne
                 Program.standalone = true;
             }
             Settings.Load();
-            Patcher.loadAllInOne(commandLineArgs);
-            Patterns.LoadPatterns();
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
             MainForm mainForm = new MainForm();
-            Patcher.setMainForm(ref mainForm);
+
+            // Provide form reference to Patcher (no ref) so other code can use it safely.
+            Patcher.SetMainForm(mainForm);
+
+            // Perform heavy initialization asynchronously so UI starts quickly.
+            Task.Run(() =>
+            {
+                try
+                {
+                    Patcher.loadAllInOne(commandLineArgs);
+                    Patterns.LoadPatterns();
+                }
+                catch (Exception ex)
+                {
+                    // If initialization fails, show message on UI thread.
+                    try
+                    {
+                        if (mainForm != null && !mainForm.IsDisposed)
+                        {
+                            mainForm.Invoke((Action)(() => MessageBox.Show(mainForm, ex.Message, "Initialization error", MessageBoxButtons.OK, MessageBoxIcon.Error)));
+                        }
+                    }
+                    catch { }
+                }
+            });
+
             Application.Run(mainForm);
         }
 
