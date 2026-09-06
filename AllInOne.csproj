@@ -8,7 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>AllInOne</RootNamespace>
     <AssemblyName>AllInOne</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>AllInOne.ico</ApplicationIcon>
@@ -145,6 +145,12 @@
     </Compile>
     <Compile Include="Forms\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SmaliColorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SmaliColorForm.Designer.cs">
+      <DependentUpon>SmaliColorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Logic\TaskPool.cs" />
   </ItemGroup>

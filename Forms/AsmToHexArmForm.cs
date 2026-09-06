@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using AllInOne.Logic;
 
@@ -16,65 +18,141 @@ namespace AllInOne.Forms
             convert_btn.Text = Language.tools_ams_to_hex_convert_btn;
             resultGBox.Text = Language.tools_ams_to_hex_result;
         }
-        private void convert_Click(object sender, EventArgs e)
+
+        private async void convert_Click(object sender, EventArgs e)
         {
-            var outpotly = "";
-            var instructionText = pseudocodeTbox.Text;
+            string instructionText = pseudocodeTbox.Text.Trim();
             if (string.IsNullOrEmpty(instructionText))
             {
                 tips.Text = "Please input Opcode";
                 return;
             }
-            tips.Text = "";
-            var compeler = new ProcessStartInfo();
-            var processStartInfo = compeler;
-            processStartInfo.FileName = Program.pathToMyPluginDir + "\\tools\\as.exe";
-            processStartInfo.UseShellExecute = false;
-            processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.CreateNoWindow = true;
-            var streamWriter = new StreamWriter("tmp");
-            streamWriter.Write(instructionText);
-            streamWriter.Close();
-            tips.Text = "Working hard";
-            try
+
+            string asPath = Path.Combine(Program.pathToMyPluginDir, "tools", "as.exe");
+            if (!File.Exists(asPath))
             {
-                compeler.Arguments = "-mthumb tmp -al";
-                var outText = Process.Start(compeler);
-                var process = outText;
-                if (process != null && !process.HasExited)
-                {
-                    outpotly = process.StandardOutput.ReadToEnd();
-                }
-                if (string.Equals(outpotly.Substring(38, 4), "    "))
-                {
-                    tips.Text = "Please input correct opcode";
-                    return;
-                }
-                thumbTBox.Text = outpotly.Substring(38, 4);
-                compeler.Arguments = "tmp -al";
-                outText = Process.Start(compeler);
-                process = outText;
-                if (process != null && !process.HasExited)
-                {
-                    outpotly = process.StandardOutput.ReadToEnd();
-                }
-                ArmTbox.Text = outpotly.Substring(38, 8);
-            }
-            catch (Exception)
-            {
-                // ignored
-                tips.Text = "Convert Expcetion";
-                File.Delete("tmp");
+                tips.Text = "Error! Not Found as.exe in tools!";
                 return;
             }
-            tips.Text = "Complete";
-            File.Delete("tmp");
+
+            convert_btn.Enabled = false;
+            tips.Text = "Working hard...";
+
+            try
+            {
+                var (thumbHex, armHex, error) = await Task.Run(() => Assemble(asPath, instructionText));
+
+                if (!string.IsNullOrEmpty(error))
+                {
+                    tips.Text = error;
+                }
+                else
+                {
+                    thumbTBox.Text = thumbHex;
+                    ArmTbox.Text = armHex;
+                    tips.Text = "Complete";
+                }
+            }
+            catch (Exception ex)
+            {
+                tips.Text = "Convert Exception: " + ex.Message;
+            }
+            finally
+            {
+                convert_btn.Enabled = true;
+                CleanupArtifacts();
+            }
+        }
+
+        private (string thumb, string arm, string error) Assemble(string asPath, string instruction)
+        {
+            string tempFile = Path.Combine(Path.GetTempPath(), $"asm_{Guid.NewGuid():N}.s");
+            try
+            {
+                File.WriteAllText(tempFile, instruction + Environment.NewLine);
+
+                // Assemble Thumb mode
+                string thumbOutput = RunAssembler(asPath, $"-mthumb \"{tempFile}\" -al");
+                string thumb = ExtractHex(thumbOutput, 4);
+
+                if (string.IsNullOrWhiteSpace(thumb))
+                {
+                    return ("", "", "Please input correct opcode");
+                }
+
+                // Assemble ARM mode
+                string armOutput = RunAssembler(asPath, $"\"{tempFile}\" -al");
+                string arm = ExtractHex(armOutput, 8);
+
+                return (thumb, arm, null);
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    try { File.Delete(tempFile); } catch { }
+                }
+            }
+        }
+
+        private string RunAssembler(string asPath, string arguments)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = asPath,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(asPath)
+            };
+
+            using (var process = Process.Start(psi))
+            {
+                if (process == null) return string.Empty;
+                string stdout = process.StandardOutput.ReadToEnd();
+                process.WaitForExit(3000);
+                return stdout;
+            }
+        }
+
+        private string ExtractHex(string listingOutput, int expectedLength)
+        {
+            if (string.IsNullOrWhiteSpace(listingOutput)) return string.Empty;
+
+            // GNU as listing parser: finds line structure like: "   1 0000 1234abcd ..."
+            var lines = listingOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var match = Regex.Match(line, @"^\s*\d+\s+[0-9a-fA-F]+\s+([0-9a-fA-F]+)");
+                if (match.Success)
+                {
+                    string hex = match.Groups[1].Value.Trim();
+                    if (hex.Length >= expectedLength)
+                    {
+                        return hex.Substring(0, expectedLength);
+                    }
+                    return hex;
+                }
+            }
+            return string.Empty;
+        }
+
+        private void CleanupArtifacts()
+        {
+            string aOut = Path.Combine(Program.pathToMyPluginDir, "a.out");
+            if (File.Exists(aOut))
+            {
+                try { File.Delete(aOut); } catch { }
+            }
         }
 
         private void AsmToHexArm_Load(object sender, EventArgs e)
         {
             tips.Text = "";
-            if (!File.Exists(Program.pathToMyPluginDir + "\\tools\\as.exe"))
+            string asPath = Path.Combine(Program.pathToMyPluginDir, "tools", "as.exe");
+            if (!File.Exists(asPath))
             {
                 tips.Text = "Error! Not Found as.exe in tools!";
             }
@@ -82,15 +160,16 @@ namespace AllInOne.Forms
 
         private void clear_Click(object sender, EventArgs e)
         {
-            thumbTBox.Text = "";
-            ArmTbox.Text = "";
-            pseudocodeTbox.Text = "";
-            File.Delete(Program.pathToMyPluginDir + "\\a.out");
+            thumbTBox.Clear();
+            ArmTbox.Clear();
+            pseudocodeTbox.Clear();
+            tips.Text = "";
+            CleanupArtifacts();
         }
 
         private void AsmToHexArm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            File.Delete(Program.pathToMyPluginDir + "\\a.out");
+            CleanupArtifacts();
         }
     }
 }

@@ -10,7 +10,7 @@
     <!--- на что заменять рекламные ссылки в патче Антирекламы-->
     <settingsItem name="ReplaceLinksTo">http://=</settingsItem>
     <!--- язык плагина. Используется только если плагин запущен через его exe-->
-    <settingsItem name="language">russian</settingsItem>
+    <settingsItem name="language">english</settingsItem>
     <!--- количество одновременных обработок. Грубо говоря, количество одновременно обрабатываемых файлов-->
     <settingsItem name="taskCount">100</settingsItem>
     <!---путь к exe текстового редактора -->

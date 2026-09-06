@@ -8,8 +8,10 @@ namespace AllInOne.Forms
 {
     public partial class LayoutIdsForm : Form
     {
-        private ColumnSorterAsc ascSorter;
+        private readonly ColumnSorterAsc ascSorter;
         private List<Dictionary<string, Dictionary<string, string>>> ids;
+        private readonly List<ListViewItem> masterItems = new List<ListViewItem>();
+
         public LayoutIdsForm()
         {
             InitializeComponent();
@@ -20,72 +22,90 @@ namespace AllInOne.Forms
             uncheckAllButton.Text = Language.uncheckAllCheckboxes;
             filterLabel.Text = Language.filterLabel;
             caseSensCB.Text = Language.caseSens;
-            this.Text = Language.listOfAllIds;
+            Text = Language.listOfAllIds;
+            EnableDoubleBuffered(idsListView, true);
         }
 
         public static void EnableDoubleBuffered(Control control, bool enable)
         {
-            var doubleBufferPropertyInfo = control.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
-            doubleBufferPropertyInfo.SetValue(control, enable, null);
+            var prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+            prop?.SetValue(control, enable, null);
         }
 
-        public void loadIds(List<Dictionary<string, Dictionary<string, string>>> ids)
+        public void loadIds(List<Dictionary<string, Dictionary<string, string>>> idsList)
         {
-            List<ListViewItem> items = new List<ListViewItem>();
+            this.ids = idsList;
+            masterItems.Clear();
 
-            foreach (Dictionary<string, Dictionary<string, string>> dict in ids)
+            if (idsList == null) return;
+
+            foreach (var dict in idsList)
             {
-                foreach(var filepathPair in dict)
+                foreach (var filepathPair in dict)
                 {
-                    foreach(var idPair in filepathPair.Value)
+                    string file = filepathPair.Key;
+                    foreach (var idPair in filepathPair.Value)
                     {
-                        items.Add(new ListViewItem(new string[] { idPair.Key, idPair.Value, filepathPair.Key }));
+                        masterItems.Add(new ListViewItem(new[] { idPair.Key, idPair.Value, file }));
                     }
                 }
             }
-            idsListView.Items.AddRange(items.ToArray());
-            countLabel.Text = idsListView.CheckedItems.Count.ToString() + "/" + idsListView.Items.Count.ToString();
-            this.ids = ids;
+
+            ApplyFilter();
         }
 
         public Dictionary<string, Dictionary<string, string>> getChecked()
-        {//словарь(путь, словарь(ид, тип))
-            Dictionary<string, Dictionary<string, string>> result = new Dictionary<string, Dictionary<string, string>>();
+        {
+            var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
 
-            foreach(ListViewItem checkedItem in idsListView.CheckedItems)
+            foreach (ListViewItem checkedItem in idsListView.CheckedItems)
             {
-                if(result.ContainsKey(checkedItem.SubItems[2].Text))
+                string file = checkedItem.SubItems[2].Text;
+                string id = checkedItem.SubItems[0].Text;
+                string type = checkedItem.SubItems[1].Text;
+
+                if (!result.TryGetValue(file, out var idMap))
                 {
-                    result[checkedItem.SubItems[2].Text].Add(checkedItem.SubItems[0].Text, checkedItem.SubItems[1].Text);
+                    idMap = new Dictionary<string, string>();
+                    result[file] = idMap;
                 }
-                else
-                {
-                    result.Add(checkedItem.SubItems[2].Text, new Dictionary<string, string>() { { checkedItem.SubItems[0].Text, checkedItem.SubItems[1].Text } });
-                }
+                idMap[id] = type;
             }
             return result;
         }
 
         private void uncheckAllButton_Click(object sender, EventArgs e)
         {
-            foreach(ListViewItem item in idsListView.CheckedItems)
+            idsListView.BeginUpdate();
+            foreach (ListViewItem item in idsListView.CheckedItems)
             {
                 item.Checked = false;
             }
+            idsListView.EndUpdate();
+            UpdateCountLabel();
         }
 
         private void idsListView_ItemChecked(object sender, ItemCheckedEventArgs e)
         {
-            countLabel.Text = idsListView.CheckedItems.Count.ToString() + "/" + idsListView.Items.Count.ToString();
+            UpdateCountLabel();
+        }
+
+        private void UpdateCountLabel()
+        {
+            countLabel.Text = $"{idsListView.CheckedItems.Count}/{idsListView.Items.Count}";
         }
 
         private void idsListView_DoubleClick(object sender, EventArgs e)
         {
-            if(idsListView.SelectedItems.Count>0)
+            if (idsListView.SelectedItems.Count > 0)
             {
-                idsListView.SelectedItems[0].Checked = !idsListView.SelectedItems[0].Checked;
-                
-                Patcher.openTextEditor(idsListView.SelectedItems[0].SubItems[2].Text, Patcher.getLineNumberInFile(idsListView.SelectedItems[0].SubItems[2].Text, "android:id=\"@id/"+idsListView.SelectedItems[0].SubItems[0].Text));
+                var selected = idsListView.SelectedItems[0];
+                selected.Checked = !selected.Checked;
+
+                string file = selected.SubItems[2].Text;
+                string id = selected.SubItems[0].Text;
+                int line = Patcher.getLineNumberInFile(file, "android:id=\"@id/" + id);
+                Patcher.openTextEditor(file, line);
             }
         }
 
@@ -97,46 +117,45 @@ namespace AllInOne.Forms
 
         private void filterTBox_TextChanged(object sender, EventArgs e)
         {
-            myTextChanged();
+            ApplyFilter();
         }
 
         private void caseSensCB_CheckedChanged(object sender, EventArgs e)
         {
-            myTextChanged();
+            ApplyFilter();
         }
 
-        private void myTextChanged()
+        private void ApplyFilter()
         {
-            if ("".Equals(filterTBox.Text)) { loadIds(ids); }
+            string query = filterTBox.Text;
+            bool caseSensitive = caseSensCB.Checked;
 
-            List<ListViewItem> items = new List<ListViewItem>();
+            idsListView.BeginUpdate();
+            idsListView.Items.Clear();
 
-            foreach (Dictionary<string, Dictionary<string, string>> dict in ids)
+            if (string.IsNullOrEmpty(query))
             {
-                foreach (var filepathPair in dict)
+                idsListView.Items.AddRange(masterItems.ToArray());
+            }
+            else
+            {
+                var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+                var filtered = new List<ListViewItem>(masterItems.Count);
+
+                foreach (var item in masterItems)
                 {
-                    foreach (var idPair in filepathPair.Value)
+                    if (item.Text.IndexOf(query, comparison) >= 0 ||
+                        item.SubItems[1].Text.IndexOf(query, comparison) >= 0 ||
+                        item.SubItems[2].Text.IndexOf(query, comparison) >= 0)
                     {
-                        if (caseSensCB.Checked)
-                        {
-                            if (idPair.Key.Contains(filterTBox.Text))
-                            {
-                                items.Add(new ListViewItem(new string[] { idPair.Key, idPair.Value, filepathPair.Key }));
-                            }
-                        }
-                        else
-                        {
-                            if (idPair.Key.ToLower().Contains(filterTBox.Text.ToLower()))
-                            {
-                                items.Add(new ListViewItem(new string[] { idPair.Key, idPair.Value, filepathPair.Key }));
-                            }
-                        }
+                        filtered.Add(item);
                     }
                 }
+                idsListView.Items.AddRange(filtered.ToArray());
             }
-            idsListView.Items.Clear();
-            idsListView.Items.AddRange(items.ToArray());
-            countLabel.Text = idsListView.CheckedItems.Count.ToString() + "/" + idsListView.Items.Count.ToString();
+
+            idsListView.EndUpdate();
+            UpdateCountLabel();
         }
 
         private void layoutIdsForm_Load(object sender, EventArgs e)

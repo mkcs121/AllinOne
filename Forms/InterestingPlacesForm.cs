@@ -8,53 +8,69 @@ namespace AllInOne.Forms
 {
     public partial class InterestingPlacesForm : Form
     {
-        private ColumnSorterAsc ascSorter;
+        private readonly ColumnSorterAsc ascSorter;
         private List<Dictionary<string, Dictionary<int, string>>> places;
+        private readonly List<ListViewItem> masterItems = new List<ListViewItem>();
+
         public InterestingPlacesForm()
         {
             InitializeComponent();
             ascSorter = new ColumnSorterAsc();
             interestingPlacesListView.ListViewItemSorter = ascSorter;
-            this.Text = Language.InterestingPlaces;
+            Text = Language.InterestingPlaces;
             filterLabel.Text = Language.filterLabel;
             caseSensCB.Text = Language.caseSens;
-            ToolTip mytooltip = new ToolTip();
-           // mytooltip.AutoPopDelay = 1000;
-            mytooltip.InitialDelay = 1000;
-            mytooltip.ReshowDelay = 500;
-            mytooltip.ShowAlways = true;
+
+            var mytooltip = new ToolTip
+            {
+                InitialDelay = 800,
+                ReshowDelay = 400,
+                ShowAlways = true
+            };
             mytooltip.SetToolTip(interestingPlacesListView, Language.tooltip_double_click);
-            
+            EnableDoubleBuffered(interestingPlacesListView, true);
         }
 
         public static void EnableDoubleBuffered(Control control, bool enable)
         {
-            var doubleBufferPropertyInfo = control.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
-            doubleBufferPropertyInfo.SetValue(control, enable, null);
+            var prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+            prop?.SetValue(control, enable, null);
         }
 
-        public void LoadPlaces(List<Dictionary<string, Dictionary<int, string>>> places)
-        {//словарь(путь к файлу, словарь(номер строки, место))
-            List<ListViewItem> items = new List<ListViewItem>();
-            foreach(Dictionary<string, Dictionary<int, string>> dict in places)
+        public void LoadPlaces(List<Dictionary<string, Dictionary<int, string>>> placesList)
+        {
+            this.places = placesList;
+            masterItems.Clear();
+
+            if (placesList == null) return;
+
+            foreach (var dict in placesList)
             {
-                foreach(var filePathPair in dict)
+                foreach (var filePathPair in dict)
                 {
-                    foreach(var placePair in filePathPair.Value)
+                    string filePath = filePathPair.Key;
+                    foreach (var placePair in filePathPair.Value)
                     {
-                        items.Add(new ListViewItem(new string[] { placePair.Value, filePathPair.Key }));
+                        var item = new ListViewItem(new[] { placePair.Value, filePath })
+                        {
+                            Tag = placePair.Key // Store line number directly in Tag (O(1) retrieval)
+                        };
+                        masterItems.Add(item);
                     }
                 }
             }
-            interestingPlacesListView.Items.AddRange(items.ToArray());
-            this.places = places;
+
+            ApplyFilter();
         }
 
         private void listView1_DoubleClick(object sender, EventArgs e)
         {
             if (interestingPlacesListView.SelectedItems.Count > 0)
             {
-                Patcher.openTextEditor(interestingPlacesListView.SelectedItems[0].SubItems[1].Text, getLineNumber(interestingPlacesListView.SelectedItems[0].SubItems[0].Text));
+                var selected = interestingPlacesListView.SelectedItems[0];
+                string filePath = selected.SubItems[1].Text;
+                int lineNumber = selected.Tag is int ln ? ln : 0;
+                Patcher.openTextEditor(filePath, lineNumber);
             }
         }
 
@@ -64,61 +80,45 @@ namespace AllInOne.Forms
             interestingPlacesListView.Sort();
         }
 
-        private int getLineNumber(string place)
-        {
-            int number = 0;
-            foreach (Dictionary<string, Dictionary<int, string>> dict in places)
-            {
-                foreach (var filePathPair in dict)
-                {
-                    foreach (var placePair in filePathPair.Value)
-                    {
-                        if (placePair.Value.Equals(place)) { number = placePair.Key; }
-                    }
-                }
-            }
-            return number;
-        }
-
         private void filterTBox_TextChanged(object sender, EventArgs e)
         {
-            myTextChanged();
+            ApplyFilter();
         }
 
         private void caseSensCB_CheckedChanged(object sender, EventArgs e)
         {
-            myTextChanged();
+            ApplyFilter();
         }
 
-        private void myTextChanged()
+        private void ApplyFilter()
         {
-            if ("".Equals(filterTBox.Text)) { LoadPlaces(places); }
-            List<ListViewItem> items = new List<ListViewItem>();
-            foreach (Dictionary<string, Dictionary<int, string>> dict in places)
+            string query = filterTBox.Text;
+            bool caseSensitive = caseSensCB.Checked;
+
+            interestingPlacesListView.BeginUpdate();
+            interestingPlacesListView.Items.Clear();
+
+            if (string.IsNullOrEmpty(query))
             {
-                foreach (var filePathPair in dict)
+                interestingPlacesListView.Items.AddRange(masterItems.ToArray());
+            }
+            else
+            {
+                var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+                var filtered = new List<ListViewItem>(masterItems.Count);
+
+                foreach (var item in masterItems)
                 {
-                    foreach (var placePair in filePathPair.Value)
+                    if (item.Text.IndexOf(query, comparison) >= 0 ||
+                        item.SubItems[1].Text.IndexOf(query, comparison) >= 0)
                     {
-                        if (caseSensCB.Checked)
-                        {
-                            if (placePair.Value.Contains(filterTBox.Text))
-                            {
-                                items.Add(new ListViewItem(new string[] { placePair.Value, filePathPair.Key }));
-                            }
-                        }
-                        else
-                        {
-                            if (placePair.Value.ToLower().Contains(filterTBox.Text.ToLower()))
-                            {
-                                items.Add(new ListViewItem(new string[] { placePair.Value, filePathPair.Key }));
-                            }
-                        }
+                        filtered.Add(item);
                     }
                 }
+                interestingPlacesListView.Items.AddRange(filtered.ToArray());
             }
-            interestingPlacesListView.Items.Clear();
-            interestingPlacesListView.Items.AddRange(items.ToArray());
+
+            interestingPlacesListView.EndUpdate();
         }
 
         private void InterestingPlacesForm_Load(object sender, EventArgs e)

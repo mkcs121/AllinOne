@@ -4,7 +4,7 @@
 /mainTLP/mainTabControl/mainTabPage/themesGBox/themesDHMACB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/disabledozeCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/colorTBox#
-/mainTLP/mainTabControl/mainTabPage/otherGBox/fixcolorstartupCB#1
+/mainTLP/mainTabControl/mainTabPage/otherGBox/fixcolorstartupCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/IconGB/visibleIconCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/IconGB/hideIconCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/mod_changelog_nameTBox#
@@ -12,15 +12,15 @@
 /mainTLP/mainTabControl/mainTabPage/otherGBox/add_modDialogCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/mod_linkTBox#
 /mainTLP/mainTabControl/mainTabPage/otherGBox/add_permissionCB#0
-/mainTLP/mainTabControl/mainTabPage/otherGBox/add_permissionCBox#Разрешение на память
+/mainTLP/mainTabControl/mainTabPage/otherGBox/add_permissionCBox#Memory Permission
 /mainTLP/mainTabControl/mainTabPage/otherGBox/fix_auth_fb_vkCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/screenOrientationCB#0
-/mainTLP/mainTabControl/mainTabPage/otherGBox/screenOrientationCBox#Авто
+/mainTLP/mainTabControl/mainTabPage/otherGBox/screenOrientationCBox#Auto
 /mainTLP/mainTabControl/mainTabPage/otherGBox/file_unpackTBox#
 /mainTLP/mainTabControl/mainTabPage/otherGBox/unpackfileCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/folder_unpackTBox#
 /mainTLP/mainTabControl/mainTabPage/otherGBox/mask_icon_patchTBox#
-/mainTLP/mainTabControl/mainTabPage/otherGBox/maskCB#1
+/mainTLP/mainTabControl/mainTabPage/otherGBox/maskCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/mask_nameTBox#
 /mainTLP/mainTabControl/mainTabPage/otherGBox/fix18_9CB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/splashGBox/splashInstallCB#0
@@ -28,7 +28,7 @@
 /mainTLP/mainTabControl/mainTabPage/otherGBox/splashGBox/splashRemoveCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/screenshotCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/backKillCB#0
-/mainTLP/mainTabControl/mainTabPage/otherGBox/backKillCBox#Двойное нажатие для выхода
+/mainTLP/mainTabControl/mainTabPage/otherGBox/backKillCBox#Exit оn double tap
 /mainTLP/mainTabControl/mainTabPage/otherGBox/blockSensorsCBox#profile.xml
 /mainTLP/mainTabControl/mainTabPage/otherGBox/blockSensorsCB#0
 /mainTLP/mainTabControl/mainTabPage/otherGBox/cloneTBox#
